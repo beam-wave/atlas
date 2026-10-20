@@ -18,7 +18,7 @@ defmodule Atlas.Live.SubscriptionCLIsTest do
   @adapters [
     {"claude_cli", "claude"},
     {"codex_cli", "codex"},
-    {"cursor_cli", "cursor-agent"},
+    {"cursor_cli", Atlas.LLM.Adapters.CursorCLI.default_executable()},
     {"gemini_cli", "gemini"}
   ]
 

@@ -114,30 +114,43 @@ defmodule Atlas.LLMTest do
       :ok = RateLimiter.set_max_concurrency(1)
       on_exit(fn -> RateLimiter.set_max_concurrency(4) end)
 
+      parent = self()
+
       {pid, ref} =
         spawn_monitor(fn ->
           RateLimiter.acquire(1_000)
+          send(parent, :acquired)
           Process.sleep(:infinity)
         end)
 
-      Process.sleep(50)
+      assert_receive :acquired, 2_000
       assert %{running: 1} = RateLimiter.status()
       Process.exit(pid, :kill)
       assert_receive {:DOWN, ^ref, _, _, _}
-      Process.sleep(20)
-      assert :ok = RateLimiter.with_slot(nil, fn -> :ok end)
+      # The limiter sees the DOWN asynchronously; a queued caller still gets the slot.
+      assert :ok = RateLimiter.with_slot(nil, fn -> :ok end, queue_timeout: 2_000)
     end
 
     test "times out when no slot frees up" do
       :ok = RateLimiter.set_max_concurrency(1)
       on_exit(fn -> RateLimiter.set_max_concurrency(4) end)
 
-      holder = Task.async(fn -> RateLimiter.with_slot(nil, fn -> Process.sleep(500) end) end)
-      Process.sleep(50)
+      parent = self()
+
+      holder =
+        Task.async(fn ->
+          RateLimiter.with_slot(nil, fn ->
+            send(parent, :holding)
+            receive do: (:release -> :ok)
+          end)
+        end)
+
+      assert_receive :holding, 2_000
 
       assert {:error, :queue_timeout} =
                RateLimiter.with_slot(nil, fn -> :never end, queue_timeout: 50)
 
+      send(holder.pid, :release)
       Task.await(holder)
       assert %{queued: 0} = RateLimiter.status()
     end

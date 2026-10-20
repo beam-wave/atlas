@@ -3,8 +3,9 @@ defmodule Atlas.LLM.Adapters.CursorCLI do
   Cursor's agent CLI (`cursor-agent -p`), billed to the user's Cursor
   subscription once they have run `cursor-agent login`.
 
-  Config keys: `:executable` (default `"cursor-agent"`; newer installs also
-  ship it as `agent`), `:model`, `:timeout`, `:extra_args`, `:env`.
+  Config keys: `:executable` (default: `cursor-agent`, or `agent`, the name
+  newer installers use, whichever is on PATH), `:model`, `:timeout`,
+  `:extra_args`, `:env`.
   """
   @behaviour Atlas.LLM.Adapter
 
@@ -13,7 +14,7 @@ defmodule Atlas.LLM.Adapters.CursorCLI do
 
   @impl true
   def complete(%Request{} = req, opts) do
-    opts = Keyword.put_new(opts, :executable, "cursor-agent")
+    opts = Keyword.put_new_lazy(opts, :executable, &default_executable/0)
 
     args =
       ["-p", "--output-format", "json"] ++
@@ -44,10 +45,15 @@ defmodule Atlas.LLM.Adapters.CursorCLI do
 
   def parse(data), do: {:error, {:unexpected_cursor_output, data}}
 
+  @doc false
+  def default_executable do
+    Enum.find(["cursor-agent", "agent"], "cursor-agent", &System.find_executable/1)
+  end
+
   @impl true
   def check(opts) do
     CLI.check(
-      Keyword.put_new(opts, :executable, "cursor-agent"),
+      Keyword.put_new_lazy(opts, :executable, &default_executable/0),
       "uses your Cursor subscription (run `cursor-agent login` once)"
     )
   end

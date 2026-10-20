@@ -32,7 +32,7 @@ config :atlas, Atlas.LLM,
   adapters: %{
     "claude_cli" => [executable: "claude", timeout: 600_000],
     "codex_cli" => [executable: "codex", timeout: 600_000],
-    "cursor_cli" => [executable: "cursor-agent", timeout: 600_000],
+    "cursor_cli" => [timeout: 600_000],
     "gemini_cli" => [executable: "gemini", timeout: 600_000],
     "anthropic_api" => [model: "claude-opus-5-5", max_tokens: 16_000],
     "mock" => []

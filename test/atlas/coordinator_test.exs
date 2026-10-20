@@ -102,8 +102,7 @@ defmodule Atlas.CoordinatorTest do
     study = start()
     await_state(study.id, "hypothesize")
     assert :ok = Study.close(study.id)
-    Process.sleep(50)
-    refute Study.running?(study.id)
+    assert eventually(fn -> not Study.running?(study.id) end)
     assert {:error, :closed} = Study.prune_segments(study.id, [1])
     assert {:error, :not_found} = Study.close(-1)
   end

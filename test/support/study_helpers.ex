@@ -35,6 +35,16 @@ defmodule Atlas.StudyHelpers do
     end
   end
 
+  @doc "Polls `fun` until it returns truthy (or gives up after `timeout` ms)."
+  def eventually(fun, timeout \\ 5_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+
+    Stream.repeatedly(fn -> fun.() end)
+    |> Enum.find(fn result ->
+      result || System.monotonic_time(:millisecond) > deadline || (Process.sleep(10) && false)
+    end)
+  end
+
   @doc "Stops all study coordinators so the sandbox owner can exit cleanly."
   def stop_all_studies do
     for {_, pid, _, _} <- DynamicSupervisor.which_children(Atlas.Study.Supervisor) do

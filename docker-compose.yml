@@ -1,0 +1,39 @@
+# One command:  docker compose up --build   (or: make up)
+# Then open http://localhost:4000
+#
+# Data (SQLite, skills, uploads) lives in the atlas-data volume; CLI logins
+# (Claude Code, Codex, Gemini, Cursor) live in atlas-home. Both survive
+# rebuilds. Put tokens/keys in a .env file next to this one (see .env.example).
+services:
+  atlas:
+    build:
+      context: .
+      args:
+        INSTALL_AGENT_CLIS: ${INSTALL_AGENT_CLIS:-true}
+    image: atlas-pmf:latest
+    container_name: atlas
+    ports:
+      - "127.0.0.1:${ATLAS_PORT:-4000}:4000"
+    environment:
+      PHX_HOST: localhost
+      PHX_URL_SCHEME: http
+      PHX_URL_PORT: ${ATLAS_PORT:-4000}
+      PHX_CHECK_ORIGIN: "false"
+      ATLAS_LLM_ADAPTER: ${ATLAS_LLM_ADAPTER:-claude_cli}
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - atlas-data:/data
+      - atlas-home:/home/atlas
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  atlas-data:
+  atlas-home:

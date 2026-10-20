@@ -19,18 +19,55 @@ system never claims fit from desk research alone.
 
 ## Quick start
 
-You need Elixir 1.15+ and Erlang/OTP 26+.
+### Option 1: Docker (one command, nothing else to install)
+
+You need [Docker](https://docs.docker.com/get-docker/) only.
 
 ```bash
-mix setup
+make up
 ```
 
+No `make`? Use `docker compose up --build -d`. Then open <http://localhost:4000>.
+Port 4000 taken? `make up PORT=4001` (or set `ATLAS_PORT` in `.env`). The
+first build takes a few minutes; later starts take seconds.
+
+The image includes Erlang/Elixir, the app, and the Claude Code, Codex, Gemini
+and Cursor CLIs. Your data (SQLite database, editable skills, uploads) lives
+in the `atlas-data` volume and survives rebuilds.
+
+Connect your AI subscription once, either way:
+
+- **Token in `.env`** (created by `make up` from `.env.example`). For Claude,
+  run `claude setup-token` on your machine and set `CLAUDE_CODE_OAUTH_TOKEN`.
+  Cursor and Gemini take `CURSOR_API_KEY` / `GEMINI_API_KEY`. Then `make restart`.
+- **Log in inside the container:** `make docker-login`, pick a CLI and follow
+  its prompts. Logins persist in the `atlas-home` volume.
+
+`make docker-doctor` shows which CLIs are installed inside the container (it
+does not check that you are logged in; a study's first step will tell you). Choose
+`mock` when creating a study to try everything offline.
+
+Other commands: `make logs`, `make down`, `make rebuild`, `make docker-shell`.
+Run `make` to list them all.
+
+### Option 2: install locally (asdf)
+
 ```bash
-mix phx.server
+make install
+```
+
+This installs [asdf](https://asdf-vm.com) if needed, then the Erlang and
+Elixir versions pinned in `.tool-versions`, then runs `mix setup`. It supports
+macOS (Homebrew) and Debian/Ubuntu (apt). Erlang compiles from source the
+first time, which takes 5–15 minutes. If Elixir is already installed at the
+right version it skips straight to setup.
+
+```bash
+make server
 ```
 
 Open <http://localhost:4000>, describe a product, and pick a model backend.
-Choose `mock` to try the full flow offline.
+`make clis` installs the Claude Code, Codex and Gemini CLIs with npm.
 
 To run a study from the terminal instead:
 
@@ -52,7 +89,7 @@ mix atlas.study "AI bookkeeping for Indian freelancers" --name LedgerLite --keep
 Check what is ready on your machine:
 
 ```bash
-mix atlas.doctor
+make doctor
 ```
 
 Add `--ping claude_cli` (or another backend) to send one tiny prompt.

@@ -42,3 +42,6 @@ npm-debug.log
 
 # Uploaded experiment results (may contain customer data)
 /uploads/
+
+# Local secrets for docker compose
+.env
