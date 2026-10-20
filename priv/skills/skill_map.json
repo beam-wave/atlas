@@ -1,0 +1,14 @@
+{
+  "_comment": "Which skills each agent loads, in order. Edit freely; changes apply on the next agent call.",
+  "intake": ["guardrails", "clear_writing", "icp_definition"],
+  "segment_strategist": ["guardrails", "research_method", "icp_definition", "jobs_to_be_done", "problem_intensity"],
+  "market_researcher": ["guardrails", "research_method", "problem_intensity"],
+  "competitor_analyst": ["guardrails", "research_method", "competitive_alternatives"],
+  "voc_miner": ["guardrails", "research_method", "voice_of_customer_mining", "problem_intensity"],
+  "positioning_writer": ["guardrails", "clear_writing", "positioning", "competitive_alternatives"],
+  "experiment_designer": ["guardrails", "clear_writing", "experiment_thresholds", "survey_design", "interview_guide", "smoke_test_design"],
+  "evidence_synthesizer": ["guardrails", "research_method", "jobs_to_be_done", "problem_intensity", "retention_signals"],
+  "skeptic": ["guardrails", "critical_review", "survey_design", "research_method"],
+  "pmf_scorer": ["guardrails", "pmf_scorecard", "decision_frameworks", "pivot_patterns", "retention_signals"],
+  "analyst": ["guardrails", "clear_writing", "critical_review"]
+}
