@@ -13,7 +13,9 @@ system never claims fit from desk research alone.
   Codex, Cursor and Gemini CLIs are supported as model backends; an Anthropic
   API key works too. An offline mock backend runs the whole loop with no model
   at all.
-- **No database server.** Data lives in one SQLite file. Setup is `mix setup`.
+- **One command to run.** `make up` builds and starts everything in Docker,
+  CLIs included. Prefer no Docker? `make install` sets up Erlang and Elixir
+  through asdf. Data lives in one SQLite file; there is no database server.
 - **Knowledge is Markdown.** The PMF methods agents follow are editable files
   in `priv/skills/`. Change a skill, and the next agent call uses it.
 
@@ -81,18 +83,26 @@ mix atlas.study "AI bookkeeping for Indian freelancers" --name LedgerLite --keep
 |-----------------|--------------------------------------|--------------------------|----------------------------------------------|
 | `claude_cli`    | `claude -p` (Claude Code)            | Claude Pro/Max plan      | install Claude Code, run `claude` and log in |
 | `codex_cli`     | `codex exec` (OpenAI Codex CLI)      | ChatGPT plan             | install Codex, run `codex login`             |
-| `cursor_cli`    | `cursor-agent -p` (Cursor CLI)       | Cursor plan              | install Cursor CLI, run `cursor-agent login` |
+| `cursor_cli`    | `cursor-agent -p` or `agent -p`      | Cursor plan              | install Cursor CLI, run `cursor-agent login` |
 | `gemini_cli`    | `gemini -p` (Gemini CLI)             | Google account           | install Gemini CLI, run `gemini` and log in  |
 | `anthropic_api` | Claude Messages API                  | API key                  | set `ANTHROPIC_API_KEY`                      |
 | `mock`          | canned outputs                       | free                     | none                                         |
 
-Check what is ready on your machine:
+In Docker all four CLIs are already installed; only the login is left. Without
+Docker, `make clis` installs the Claude Code, Codex and Gemini CLIs with npm,
+and Cursor's installer is `curl https://cursor.com/install -fsS | bash`.
+
+Check what is ready (`make docker-doctor` inside Docker):
 
 ```bash
 make doctor
 ```
 
-Add `--ping claude_cli` (or another backend) to send one tiny prompt.
+To send one tiny prompt through a backend and see the reply:
+
+```bash
+mix atlas.doctor --ping claude_cli
+```
 
 The backend for a study is, in order: the one chosen when the study was
 created, the default set on the Studies page, `ATLAS_LLM_ADAPTER`, then
@@ -192,6 +202,9 @@ lib/atlas/scoring.ex             the rubric
 lib/atlas/ingest.ex              survey, analytics, retention and transcript parsing
 lib/atlas/workers.ex             Oban jobs: re-score, re-observe, reminders, analyst
 lib/atlas_web/live/              dashboard pages
+priv/skills/                     the Markdown skills
+Dockerfile, docker-compose.yml   the Docker setup (rel/docker-entrypoint.sh prepares /data)
+Makefile, scripts/install.sh     one-command tasks and the asdf installer
 ```
 
 Each study runs in its own supervised subtree. A crashed agent is contained,
@@ -202,22 +215,60 @@ where they were.
 ## Tests
 
 ```bash
-mix test
+make test
 ```
 
-The suite runs the full loop on the mock backend, exercises each CLI adapter
-against fake executables, and covers the API adapter with stubbed HTTP. To
-spend a little of your real subscription and check the installed CLIs:
+The suite (about 190 tests) runs the full loop on the mock backend, exercises
+each CLI adapter against fake executables, and covers the API adapter with
+stubbed HTTP. No model is called and nothing is billed.
+
+To spend a little of your real subscription and check the CLIs installed on
+this machine (each test skips itself when its CLI is missing):
 
 ```bash
-mix test --only live
+make test-live
 ```
 
 ## Privacy
 
 Transcripts are redacted (emails, phone numbers, card numbers, ID numbers)
-before they are stored or shown to a model. Uploads live in `uploads/`, which
-is git-ignored. Deleting a study deletes its evidence and uploads.
+before they are stored or shown to a model. Uploads live in `uploads/`
+(git-ignored) locally, or in the `atlas-data` volume in Docker. Deleting a
+study deletes its evidence and uploads. `.env` holds your tokens and is
+git-ignored and kept out of the Docker image.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `Port 4000 is already in use` | `make up PORT=4001` |
+| `Docker is not running` | start Docker Desktop (or the docker service), then `make up` again |
+| Docker build fails while downloading | network hiccup; run `make up` again (downloads retry, finished layers are cached) |
+| A study fails with a login or auth error | log the CLI in: `make docker-login` (Docker) or run the CLI once in a terminal; then press **Retry** on the study |
+| A study fails with "budget exhausted" | raise the call budget at the bottom of the study page, then **Retry** |
+| Every study stops at once | the kill switch is on; release it on the Usage page |
+| `elixir: command not found` after `make install` | open a new terminal (the installer added asdf to your shell profile) |
+| Start over in Docker | `make docker-reset` deletes the container, data and CLI logins (asks first) |
+
+## Updating
+
+Docker:
+
+```bash
+git pull && make up
+```
+
+Without Docker:
+
+```bash
+git pull && make setup
+```
+
+In Docker, database migrations run automatically when the app starts;
+`make setup` runs them locally. Your skills in
+Docker are a copy in the data volume, so local edits survive updates; delete
+`/data/skills` inside the container (`make docker-shell`) to take the new
+defaults.
 
 ## Configuration
 
@@ -225,7 +276,16 @@ is git-ignored. Deleting a study deletes its evidence and uploads.
 |--------------------------|--------------------------|--------------------------------------|
 | `ATLAS_LLM_ADAPTER`      | `claude_cli`             | default backend                      |
 | `ATLAS_MAX_CONCURRENCY`  | `3`                      | parallel model calls                 |
+| `ATLAS_PORT`             | `4000`                   | host port for Docker                 |
 | `ATLAS_SKILLS_DIR`       | `priv/skills`            | where skills are read from           |
+| `ATLAS_UPLOADS_DIR`      | `uploads/`               | where result files are stored        |
+| `CLAUDE_CODE_OAUTH_TOKEN`| —                        | Claude subscription token (`claude setup-token`) |
+| `CURSOR_API_KEY`         | —                        | Cursor subscription key              |
+| `GEMINI_API_KEY`         | —                        | Gemini key                           |
+| `OPENAI_API_KEY`         | —                        | Codex with an API key instead of login |
 | `ANTHROPIC_API_KEY`      | —                        | for `anthropic_api`                  |
-| `DATABASE_PATH`          | `atlas_dev.db` in dev    | SQLite file (required in prod)       |
-| `SECRET_KEY_BASE`        | —                        | required in prod                     |
+| `DATABASE_PATH`          | `atlas_dev.db` in dev    | SQLite file (Docker: `/data/atlas.db`) |
+| `SECRET_KEY_BASE`        | —                        | required in prod (Docker generates one) |
+| `PHX_HOST`, `PHX_URL_SCHEME`, `PHX_URL_PORT` | `example.com`, `https`, `443` | public URL when deployed |
+
+In Docker, put these in `.env` (see `.env.example`) and run `make restart`.
